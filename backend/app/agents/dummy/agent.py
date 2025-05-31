@@ -1,67 +1,62 @@
 """
-Dummy agent for testing and development
+Dummy agent implementation for testing and demonstration
 """
-import asyncio
+import time
 from typing import Dict, Any
-
-from app.agents.base import Agent, AgentConfig
-from app.events.action import Action, create_action, ActionType
-from app.events.observation import Observation
+from ..base import Agent, AgentConfig, AgentState
 
 
 class DummyAgent(Agent):
-    """
-    A simple dummy agent for testing purposes.
-    Always responds with think actions and finishes after a few steps.
-    """
+    """A simple dummy agent for testing purposes"""
     
     def __init__(self, config: AgentConfig):
         super().__init__(config)
-        self.steps_taken = 0
-        self.max_steps = 3
+        self.responses = [
+            "I understand your request.",
+            "Let me think about that...",
+            "That's an interesting question.",
+            "I'll help you with that.",
+            "Here's what I can do for you."
+        ]
+        self.response_index = 0
     
-    async def step(self, observation: Observation) -> Action:
-        """Take a dummy step"""
-        self.steps_taken += 1
+    async def step(self, message: str) -> Dict[str, Any]:
+        """Execute one step of the dummy agent"""
+        self.state = AgentState.THINKING
+        self.stats["messages_sent"] += 1
         
-        self.logger.info(
-            "Dummy agent step",
-            step=self.steps_taken,
-            observation_type=observation.observation_type
-        )
+        # Simulate processing time
+        await self._simulate_thinking()
         
-        # Simulate thinking time
-        await asyncio.sleep(0.1)
+        # Cycle through responses
+        response_text = self.responses[self.response_index % len(self.responses)]
+        self.response_index += 1
         
-        if self.steps_taken >= self.max_steps:
-            return create_action(
-                ActionType.FINISH,
-                thought=f"Dummy agent finished after {self.steps_taken} steps",
-                success=True,
-                message="Dummy task completed successfully"
-            )
+        response = {
+            "agent_type": "dummy",
+            "thought": f"Processing message: {message[:50]}...",
+            "action": "respond",
+            "response": response_text,
+            "message_length": len(message),
+            "iteration": self.iteration
+        }
         
-        return create_action(
-            ActionType.THINK,
-            thought=f"Dummy agent thinking... step {self.steps_taken}",
-            content=f"This is dummy thought #{self.steps_taken}. "
-                   f"I'm processing observation: {observation.observation_type}"
-        )
+        self.iteration += 1
+        self.stats["actions_taken"] += 1
+        
+        self.state = AgentState.IDLE
+        return response
     
-    async def reset(self) -> None:
-        """Reset the dummy agent"""
-        self.state = self.state.__class__.IDLE
-        self.steps_taken = 0
-        self.iteration_count = 0
-        self.total_cost = 0.0
-        
-        self.logger.info("Dummy agent reset")
+    async def _simulate_thinking(self):
+        """Simulate agent thinking time"""
+        import asyncio
+        await asyncio.sleep(0.3)  # Faster for dummy agent
     
     def get_stats(self) -> Dict[str, Any]:
-        """Get dummy agent statistics"""
+        """Get agent statistics"""
         stats = super().get_stats()
         stats.update({
-            "steps_taken": self.steps_taken,
-            "max_steps": self.max_steps
+            "responses_given": self.response_index,
+            "agent_type": "dummy"
         })
         return stats
